@@ -1,11 +1,26 @@
+
 name: Weibo Monitor
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "*/5 * * * *"
+
+permissions:
+  contents: read
 
 jobs:
-  test:
+  monitor:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Test workflow
-        run: echo "Weibo Monitor is working!"
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Weibo Monitor
+        run: python monitor.py
