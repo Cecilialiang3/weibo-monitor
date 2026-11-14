@@ -1,57 +1,67 @@
 
 import json
-import os
-from pathlib import Path
-from datetime import datetime, timezone
+import re
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
 
-DATA_FILE = Path("seen_posts.json")
-CONFIG_FILE = Path("config.json")
-
-
-def load_seen():
-    if DATA_FILE.exists():
-        return json.loads(DATA_FILE.read_text(encoding="utf-8"))
-    return []
-
-
-def save_seen(posts):
-    DATA_FILE.write_text(
-        json.dumps(posts, ensure_ascii=False, indent=2),
-        encoding="utf-8"
-    )
-
-
-def load_config():
-    if not CONFIG_FILE.exists():
-        print("请先创建 config.json")
-        return None
-
-    return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+CONFIG_FILE = "config.json"
 
 
 def main():
-    print("===== Weibo Monitor =====")
-    print("启动时间：", datetime.now(timezone.utc).isoformat())
+    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+        config = json.load(f)
 
-    config = load_config()
-    if not config:
-        return
+    user = config["users"][0]
+    uid = str(user["uid"])
 
-    users = config.get("users", [])
-    seen = set(load_seen())
+    url = f"https://weibo.com/u/{uid}"
 
-    print("监控用户数量：", len(users))
+    print("===== 微博公开主页访问测试 =====")
+    print("监控 UID:", uid)
+    print("正在访问:", url)
 
-    for user in users:
-        uid = str(user.get("uid", "")).strip()
-        if not uid:
-            continue
+    request = Request(
+        url,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 "
+                "like Mac OS X) AppleWebKit/605.1.15 "
+                "Version/17.0 Mobile/15E148 Safari/604.1"
+            ),
+            "Accept-Language": "zh-CN,zh;q=0.9"
+        }
+    )
 
-        print("等待监控用户：", uid)
+    try:
+        with urlopen(request, timeout=20) as response:
+            html = response.read(1000000).decode(
+                "utf-8", errors="ignore"
+            )
 
-    print("当前已记录微博数量：", len(seen))
-    print("基础程序运行成功。")
-    print("下一步将接入微博公开信息获取。")
+            title = re.search(
+                r"<title[^>]*>(.*?)</title>",
+                html,
+                re.I | re.S
+            )
+
+            print("HTTP状态:", response.status)
+            print("最终地址:", response.url)
+            print("网页标题:", title.group(1).strip() if title else "未找到")
+            print("页面长度:", len(html))
+            print("是否包含目标UID:", uid in html)
+
+            if response.status == 200:
+                print("公开页面访问成功，等待进一步检查数据。")
+
+    except HTTPError as e:
+        print("HTTP错误:", e.code)
+        print("微博可能限制了当前访问。")
+
+    except URLError as e:
+        print("网络访问失败:", e.reason)
+
+    except Exception as e:
+        print("程序错误:", str(e))
 
 
 if __name__ == "__main__":
