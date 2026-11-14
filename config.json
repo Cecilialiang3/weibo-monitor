@@ -1,0 +1,11 @@
+
+{
+  "users": [
+    {
+      "name": "测试用户",
+      "uid": "请替换成微博用户UID"
+    }
+  ],
+  "check_interval": 60,
+  "auto_comment": false
+}
